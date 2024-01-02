@@ -42,10 +42,15 @@
 </template>
 
 <script setup lang="ts">
-  import { onMounted, ref } from 'vue'
+  interface Segment {
+    startTime: string
+    endTime: string
+    textContent: string
+    url: string
+  }
+  import { ref } from 'vue'
   import { supabase } from '@/lib/supabaseClient' // Adjust the path as necessary
   import Container from '@/components/Container.vue'
-  import { Label } from '@/components/ui/label'
   import { Button } from '@/components/ui/button'
   import { Input } from '@/components/ui/input'
   import {
@@ -72,10 +77,10 @@
           console.error('Error:', error)
         } else {
           console.log('Search results:', data)
-          let allSegments = []
+          let allSegments: Segment[] = []
           if (data && data.length > 0) {
             data.forEach((videoData) => {
-              const segments = extractTimeFromSRT(
+              const segments: Segment[] = extractTimeFromSRT(
                 videoData.srt,
                 searchPhrase.value,
                 videoData.url
@@ -92,40 +97,47 @@
     }
   }
 
-  function loadVideo(): Promise<unknown> {
+  function loadVideo(): Promise<void> {
     return new Promise((resolve, reject) => {
-      const video = videoPlayer.value
-      console.log('video', video)
-      if (!video) {
-        reject('Video player not found')
-        return
-      }
+      if (videoPlayer.value) {
+        const video = videoPlayer.value as HTMLVideoElement
+        console.log('video', video)
+        if (!video) {
+          reject('Video player not found')
+          return
+        }
 
-      const onLoadedMetadata = () => {
-        video.removeEventListener('loadedmetadata', onLoadedMetadata)
-        resolve()
-      }
-      const onCanPlayThrough = () => {
-        video.removeEventListener('canplaythrough', onCanPlayThrough)
-        resolve()
-      }
+        const onLoadedMetadata = () => {
+          video.removeEventListener('loadedmetadata', onLoadedMetadata)
+          resolve()
+        }
+        const onCanPlayThrough = () => {
+          video.removeEventListener('canplaythrough', onCanPlayThrough)
+          resolve()
+        }
 
-      video.addEventListener('canplaythrough', onCanPlayThrough)
-      video.addEventListener('loadedmetadata', onLoadedMetadata)
-      console.log('Loading video:', videoUrl.value)
-      if (video.readyState === 4) {
-        console.log('The video is ready to play through.')
+        video.addEventListener('canplaythrough', onCanPlayThrough)
+        video.addEventListener('loadedmetadata', onLoadedMetadata)
+        console.log('Loading video:', videoUrl.value)
+        if (video.readyState === 4) {
+          console.log('The video is ready to play through.')
+        } else {
+          console.log('The video is not yet ready to play through.')
+        }
+        video.load() // Trigger reload of video to ensure loadedmetadata fires
       } else {
-        console.log('The video is not yet ready to play through.')
+        reject('Video player element is not available')
       }
-      video.load() // Trigger reload of video to ensure loadedmetadata fires
     })
   }
 
-  const playSegmentsSequentially = async (segments) => {
+  const playSegmentsSequentially = async (segments: Segment[]) => {
     console.log('Playing segments:', segments)
     for (const segment of segments) {
-      if (videoPlayer.value.src !== segment.url) {
+      if (
+        videoPlayer.value &&
+        (videoPlayer.value as HTMLVideoElement).src !== segment.url
+      ) {
         videoUrl.value = segment.url
         await loadVideo() // Reload the video player with the new URL
       }
@@ -133,26 +145,33 @@
     }
   }
 
-  async function playVideoSegment(startTime: string, endTime: string) {
+  async function playVideoSegment(
+    startTime: string,
+    endTime: string
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
-      const video = videoPlayer.value
-      if (!video) {
-        reject('Video player not found')
-        return
-      }
-      console.log('Playing segment:', startTime, endTime)
-      video.currentTime = convertToSeconds(startTime)
-      video.play()
-
-      const onTimeUpdate = () => {
-        if (video.currentTime >= convertToSeconds(endTime)) {
-          video.pause()
-          video.removeEventListener('timeupdate', onTimeUpdate)
-          resolve()
+      if (videoPlayer.value) {
+        const video = videoPlayer.value as HTMLVideoElement
+        if (!video) {
+          reject('Video player not found')
+          return
         }
-      }
+        console.log('Playing segment:', startTime, endTime)
+        video.currentTime = convertToSeconds(startTime)
+        video.play()
 
-      video.addEventListener('timeupdate', onTimeUpdate)
+        const onTimeUpdate = () => {
+          if (video.currentTime >= convertToSeconds(endTime)) {
+            video.pause()
+            video.removeEventListener('timeupdate', onTimeUpdate)
+            resolve()
+          }
+        }
+
+        video.addEventListener('timeupdate', onTimeUpdate)
+      } else {
+        reject('Video player not found')
+      }
     })
   }
 
@@ -171,13 +190,8 @@
     srtContent: string,
     searchPhrase: string,
     videoUrl: string
-  ): Array<{
-    startTime: string
-    endTime: string
-    textContent: string
-    url: string
-  }> {
-    const results = []
+  ): Segment[] {
+    const results: Segment[] = []
     const srtEntries = srtContent.split('\n\n')
 
     srtEntries.forEach((entry) => {
