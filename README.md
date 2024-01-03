@@ -4,6 +4,10 @@
 
 A database to search and play influencers video clip
 
+https://echoclip.netlify.app
+<img width="1624" alt="image" src="https://github.com/get-Capte/echoclip/assets/285033/f640ec5e-10ec-4767-b4da-28f848b45c38">
+
+
 ## Stack
 
 - Vue
