@@ -14,7 +14,11 @@
           <CardContent class="grid gap-4">
             <div class="grid grid-cols-2 gap-6">
               <div class="input-group">
-                <Input id="jwtToken" v-model="searchPhrase" />
+                <Input
+                  id="searchPhrase"
+                  @keyup="throttledQuery"
+                  v-model="searchPhrase"
+                />
               </div>
               <Button @click="query()">Search</Button>
             </div>
@@ -49,6 +53,7 @@
     url: string
   }
   import { ref } from 'vue'
+  import { useThrottleFn } from '@vueuse/core'
   import { supabase } from '@/lib/supabaseClient' // Adjust the path as necessary
   import Container from '@/components/Container.vue'
   import { Button } from '@/components/ui/button'
@@ -96,6 +101,7 @@
       }
     }
   }
+  const throttledQuery = useThrottleFn(query, 500) // 500 ms throttle
 
   function loadVideo(): Promise<void> {
     return new Promise((resolve, reject) => {
