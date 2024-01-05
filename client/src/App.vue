@@ -4,27 +4,12 @@
   >
     <div class="z-10 col-span-2 grid items-start gap-6 lg:col-span-1">
       <Container>
-        <Card>
-          <CardHeader class="space-y-1">
-            <CardTitle class="text-xl"> Type a sentence</CardTitle>
-            <CardDescription>
-              You can type anything : "comment ça va ?"
-            </CardDescription>
-          </CardHeader>
-          <CardContent class="grid gap-4">
-            <div class="grid grid-cols-2 gap-6">
-              <div class="input-group">
-                <Input
-                  id="searchPhrase"
-                  @keyup="throttledQuery"
-                  v-model="searchPhrase"
-                />
-              </div>
-              <Button @click="query()">Search</Button>
-            </div>
-          </CardContent>
-          <CardFooter> </CardFooter>
-        </Card>
+        <div class="grid grid-cols-2 gap-6">
+          <div class="input-group">
+            <Input id="searchPhrase" v-model="searchPhrase" />
+          </div>
+          <Button @click="query()">Search</Button>
+        </div>
       </Container>
     </div>
     <Container>
@@ -52,20 +37,13 @@
     textContent: string
     url: string
   }
-  import { ref } from 'vue'
-  import { useThrottleFn } from '@vueuse/core'
+  import { ref, watch, watchEffect } from 'vue'
+  import { useDebounceFn } from '@vueuse/core'
   import { supabase } from '@/lib/supabaseClient' // Adjust the path as necessary
   import Container from '@/components/Container.vue'
   import { Button } from '@/components/ui/button'
   import { Input } from '@/components/ui/input'
-  import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle
-  } from '@/components/ui/card'
+
   const searchPhrase = ref('')
   const videoUrl = ref('')
   const videoPlayer = ref(null)
@@ -101,7 +79,7 @@
       }
     }
   }
-  const throttledQuery = useThrottleFn(query, 500) // 500 ms throttle
+  const debouncedQuery = useDebounceFn(query, 500) // 500 ms throttle
 
   function loadVideo(): Promise<void> {
     return new Promise((resolve, reject) => {
@@ -151,6 +129,10 @@
     }
   }
 
+  watch(searchPhrase, () => {
+    debouncedQuery()
+  })
+
   async function playVideoSegment(
     startTime: string,
     endTime: string
@@ -163,11 +145,15 @@
           return
         }
         console.log('Playing segment:', startTime, endTime)
-        video.currentTime = convertToSeconds(startTime)
+        if (convertToSeconds(startTime) - 0.5 < 0) {
+          video.currentTime = convertToSeconds(startTime)
+        } else {
+          video.currentTime = convertToSeconds(startTime) - 0.5
+        }
         video.play()
 
         const onTimeUpdate = () => {
-          if (video.currentTime >= convertToSeconds(endTime)) {
+          if (video.currentTime >= convertToSeconds(endTime) + 0.5) {
             video.pause()
             video.removeEventListener('timeupdate', onTimeUpdate)
             resolve()
