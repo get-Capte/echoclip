@@ -15,6 +15,7 @@
     <Container>
       <div>
         <video
+          id="videoPlayer"
           :key="videoUrl"
           ref="videoPlayer"
           width="320"
@@ -37,7 +38,7 @@
     textContent: string
     url: string
   }
-  import { ref, watch } from 'vue'
+  import { nextTick, ref, watch } from 'vue'
   import { useDebounceFn } from '@vueuse/core'
   import { supabase } from '@/lib/supabaseClient' // Adjust the path as necessary
   import Container from '@/components/Container.vue'
@@ -85,30 +86,41 @@
     return new Promise((resolve, reject) => {
       if (videoPlayer.value) {
         const video = videoPlayer.value as HTMLVideoElement
-        console.log('video', video)
         if (!video) {
           reject('Video player not found')
           return
         }
 
         const onLoadedMetadata = () => {
+          console.log('onLoadedMetadata')
           video.removeEventListener('loadedmetadata', onLoadedMetadata)
           resolve()
         }
+        const onCanPlay = () => {
+          console.log('onCanPlay')
+          video.removeEventListener('canplay', onCanPlay)
+          resolve()
+        }
         const onCanPlayThrough = () => {
+          console.log('onCanPlayThrough')
           video.removeEventListener('canplaythrough', onCanPlayThrough)
           resolve()
         }
-
+        console.log('video dom: ', video)
         video.addEventListener('canplaythrough', onCanPlayThrough)
         video.addEventListener('loadedmetadata', onLoadedMetadata)
+        video.addEventListener('canplay', onCanPlay)
+
         console.log('Loading video:', videoUrl.value)
+        video.load() // Trigger reload of video to ensure loadedmetadata fires
         if (video.readyState === 4) {
           console.log('The video is ready to play through.')
         } else {
-          console.log('The video is not yet ready to play through.')
+          console.log(
+            'The video is not yet ready to play through.',
+            video.readyState
+          )
         }
-        video.load() // Trigger reload of video to ensure loadedmetadata fires
       } else {
         reject('Video player element is not available')
       }
@@ -123,9 +135,12 @@
         (videoPlayer.value as HTMLVideoElement).src !== segment.url
       ) {
         videoUrl.value = segment.url
-        await loadVideo() // Reload the video player with the new URL
+        await nextTick(async () => {
+          await loadVideo()
+          await playVideoSegment(segment.startTime, segment.endTime)
+        })
+        // await loadVideo() // Reload the video player with the new URL
       }
-      await playVideoSegment(segment.startTime, segment.endTime)
     }
   }
 
