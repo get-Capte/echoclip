@@ -37,7 +37,7 @@
     textContent: string
     url: string
   }
-  import { ref, watch, watchEffect } from 'vue'
+  import { ref, watch } from 'vue'
   import { useDebounceFn } from '@vueuse/core'
   import { supabase } from '@/lib/supabaseClient' // Adjust the path as necessary
   import Container from '@/components/Container.vue'
